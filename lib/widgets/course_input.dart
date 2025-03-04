@@ -18,21 +18,48 @@ class CourseInput extends StatefulWidget {
 
 class _CourseInputState extends State<CourseInput> {
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _codeController;
   late TextEditingController _nameController;
   late TextEditingController _instructorController;
   late TextEditingController _creditHoursController;
+  late TextEditingController _classroomController;
+  late TextEditingController _divisionController;
+  late TextEditingController _rollStartController;
+  late TextEditingController _rollEndController;
+  late TextEditingController _studentCountController;
   late Color _selectedColor;
+  late BatchType _selectedBatch;
+  late SlotType _selectedType;
+  late CourseType _selectedCourseType;
+  late String _selectedProgram;
+  late String _selectedSemester;
+  late String _selectedAcademicYear;
   final List<TimeSlot> _timeSlots = [];
+
+  // Predefined options
+  final List<String> _programs = ['BCA', 'MCA', 'B.Tech', 'M.Tech'];
+  final List<String> _semesters = ['Sem-I', 'Sem-II', 'Sem-III', 'Sem-IV', 'Sem-V', 'Sem-VI'];
+  final List<String> _academicYears = ['2023-24', '2024-25', '2025-26'];
 
   @override
   void initState() {
     super.initState();
+    _codeController = TextEditingController(text: widget.course?.code);
     _nameController = TextEditingController(text: widget.course?.name);
     _instructorController = TextEditingController(text: widget.course?.instructor);
-    _creditHoursController = TextEditingController(
-      text: widget.course?.creditHours.toString(),
-    );
+    _creditHoursController = TextEditingController(text: widget.course?.creditHours.toString());
+    _classroomController = TextEditingController(text: widget.course?.classroom);
+    _divisionController = TextEditingController(text: widget.course?.division);
+    _rollStartController = TextEditingController(text: widget.course?.rollNumberStart.toString());
+    _rollEndController = TextEditingController(text: widget.course?.rollNumberEnd.toString());
+    _studentCountController = TextEditingController(text: widget.course?.studentCount.toString());
     _selectedColor = widget.course?.color ?? Colors.blue;
+    _selectedBatch = widget.course?.batch == "B2" ? BatchType.afternoon : BatchType.morning;
+    _selectedType = widget.course?.type ?? SlotType.lecture;
+    _selectedCourseType = widget.course?.courseType ?? CourseType.theory;
+    _selectedProgram = widget.course?.program ?? _programs.first;
+    _selectedSemester = widget.course?.semester ?? _semesters.first;
+    _selectedAcademicYear = widget.course?.academicYear ?? _academicYears.first;
     if (widget.course != null) {
       _timeSlots.addAll(widget.course!.availableTimeSlots);
     }
@@ -40,29 +67,103 @@ class _CourseInputState extends State<CourseInput> {
 
   @override
   void dispose() {
+    _codeController.dispose();
     _nameController.dispose();
     _instructorController.dispose();
     _creditHoursController.dispose();
+    _classroomController.dispose();
+    _divisionController.dispose();
+    _rollStartController.dispose();
+    _rollEndController.dispose();
+    _studentCountController.dispose();
     super.dispose();
   }
 
   void _addTimeSlot() async {
+    // Get batch time range
+    final batchStartHour = _selectedBatch == BatchType.morning ? 8 : 10;
+    final batchEndHour = _selectedBatch == BatchType.morning ? 15 : 17;
+
     final TimeOfDay? startTime = await showTimePicker(
       context: context,
-      initialTime: const TimeOfDay(hour: 9, minute: 0),
+      initialTime: TimeOfDay(hour: batchStartHour, minute: 0),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: child!,
+        );
+      },
     );
 
     if (startTime == null) return;
 
+    // Validate start time
+    final startMinutes = startTime.hour * 60 + startTime.minute;
+    final batchStartMinutes = batchStartHour * 60;
+    final batchEndMinutes = batchEndHour * 60;
+
+    if (startMinutes < batchStartMinutes || startMinutes >= batchEndMinutes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Start time must be between ${batchStartHour}:00 AM and ${batchEndHour}:00 PM'
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     final TimeOfDay? endTime = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(
-        hour: startTime.hour + 1,
+        hour: (startTime.hour + 1) > batchEndHour ? batchEndHour : (startTime.hour + 1),
         minute: startTime.minute,
       ),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: child!,
+        );
+      },
     );
 
     if (endTime == null) return;
+
+    // Validate end time
+    final endMinutes = endTime.hour * 60 + endTime.minute;
+    if (endMinutes <= startMinutes || endMinutes > batchEndMinutes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid end time'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Check for break time conflicts
+    final shortBreakStart = (_selectedBatch == BatchType.morning ? 10 : 12) * 60;
+    final shortBreakEnd = shortBreakStart + 15;
+    final lunchBreakStart = (_selectedBatch == BatchType.morning ? 12 : 14) * 60;
+    final lunchBreakEnd = lunchBreakStart + 45;
+
+    if ((startMinutes < shortBreakEnd && endMinutes > shortBreakStart) ||
+        (startMinutes < lunchBreakEnd && endMinutes > lunchBreakStart)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Time slot cannot overlap with break times'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
     final int? day = await showDialog<int>(
       context: context,
@@ -71,14 +172,15 @@ class _CourseInputState extends State<CourseInput> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 6; i++)
               ListTile(
                 title: Text([
                   'Monday',
                   'Tuesday',
                   'Wednesday',
                   'Thursday',
-                  'Friday'
+                  'Friday',
+                  'Saturday'
                 ][i]),
                 onTap: () => Navigator.pop(context, i),
               ),
@@ -89,11 +191,32 @@ class _CourseInputState extends State<CourseInput> {
 
     if (day == null) return;
 
+    // Check for overlapping slots on the same day
+    final hasOverlap = _timeSlots.any((slot) {
+      if (slot.day != day) return false;
+      final slotStart = slot.startTime.hour * 60 + slot.startTime.minute;
+      final slotEnd = slot.endTime.hour * 60 + slot.endTime.minute;
+      return (startMinutes < slotEnd && endMinutes > slotStart);
+    });
+
+    if (hasOverlap) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Time slot overlaps with an existing slot'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _timeSlots.add(TimeSlot(
         day: day,
         startTime: startTime,
         endTime: endTime,
+        type: _selectedType,
       ));
     });
   }
@@ -110,13 +233,24 @@ class _CourseInputState extends State<CourseInput> {
       
       final course = Course(
         id: widget.course?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        code: _codeController.text,
         name: _nameController.text,
-        instructor: _instructorController.text.isEmpty
-            ? null
-            : _instructorController.text,
+        instructor: _instructorController.text.isEmpty ? null : _instructorController.text,
         creditHours: int.parse(_creditHoursController.text),
         color: _selectedColor,
         availableTimeSlots: List.from(_timeSlots),
+        type: _selectedType,
+        classroom: _classroomController.text,
+        division: _divisionController.text,
+        batch: _selectedBatch == BatchType.morning ? "B1" : "B2",
+        program: _selectedProgram,
+        semester: _selectedSemester,
+        courseType: _selectedCourseType,
+        rollNumberStart: int.parse(_rollStartController.text),
+        rollNumberEnd: int.parse(_rollEndController.text),
+        studentCount: int.parse(_studentCountController.text),
+        academicYear: _selectedAcademicYear,
+        isPractical: _selectedCourseType == CourseType.practical,
       );
 
       widget.onSubmit(course);
@@ -130,11 +264,31 @@ class _CourseInputState extends State<CourseInput> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Basic Course Information
+          Text(
+            'Course Information',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _codeController,
+            decoration: const InputDecoration(
+              labelText: 'Course Code',
+              hintText: 'e.g., XCA403',
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a course code';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _nameController,
             decoration: const InputDecoration(
               labelText: 'Course Name',
-              hintText: 'e.g., Introduction to Computer Science',
+              hintText: 'e.g., Software Project Management',
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -147,7 +301,7 @@ class _CourseInputState extends State<CourseInput> {
           TextFormField(
             controller: _instructorController,
             decoration: const InputDecoration(
-              labelText: 'Instructor (Optional)',
+              labelText: 'Instructor',
               hintText: 'e.g., Dr. John Smith',
             ),
           ),
@@ -170,10 +324,216 @@ class _CourseInputState extends State<CourseInput> {
               return null;
             },
           ),
+          const SizedBox(height: 24),
+
+          // Course Type and Schedule
+          Text(
+            'Course Type and Schedule',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
-          // Color Picker
+          DropdownButtonFormField<CourseType>(
+            value: _selectedCourseType,
+            decoration: const InputDecoration(
+              labelText: 'Course Type',
+            ),
+            items: CourseType.values.map((type) {
+              return DropdownMenuItem(
+                value: type,
+                child: Text(type.toString().split('.').last),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedCourseType = value!;
+                // Update slot type based on course type
+                _selectedType = switch (value) {
+                  CourseType.theory => SlotType.lecture,
+                  CourseType.practical => SlotType.practical,
+                  CourseType.vap => SlotType.vap,
+                  CourseType.training => SlotType.training,
+                  CourseType.library => SlotType.library,
+                };
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<BatchType>(
+            value: _selectedBatch,
+            decoration: const InputDecoration(
+              labelText: 'Batch',
+            ),
+            items: BatchType.values.map((type) {
+              return DropdownMenuItem(
+                value: type,
+                child: Text(type == BatchType.morning ? 'B1 (8:00 AM - 3:00 PM)' : 'B2 (10:00 AM - 5:00 PM)'),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedBatch = value!;
+              });
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Academic Information
+          Text(
+            'Academic Information',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedProgram,
+            decoration: const InputDecoration(
+              labelText: 'Program',
+            ),
+            items: _programs.map((program) {
+              return DropdownMenuItem(
+                value: program,
+                child: Text(program),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedProgram = value!;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedSemester,
+            decoration: const InputDecoration(
+              labelText: 'Semester',
+            ),
+            items: _semesters.map((semester) {
+              return DropdownMenuItem(
+                value: semester,
+                child: Text(semester),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedSemester = value!;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedAcademicYear,
+            decoration: const InputDecoration(
+              labelText: 'Academic Year',
+            ),
+            items: _academicYears.map((year) {
+              return DropdownMenuItem(
+                value: year,
+                child: Text(year),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedAcademicYear = value!;
+              });
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Class and Student Information
+          Text(
+            'Class and Student Information',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _classroomController,
+            decoration: const InputDecoration(
+              labelText: 'Classroom',
+              hintText: 'e.g., S-C3',
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a classroom';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _divisionController,
+            decoration: const InputDecoration(
+              labelText: 'Division',
+              hintText: 'e.g., B',
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a division';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _rollStartController,
+                  decoration: const InputDecoration(
+                    labelText: 'Roll Number Start',
+                    hintText: 'e.g., 101',
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Required';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextFormField(
+                  controller: _rollEndController,
+                  decoration: const InputDecoration(
+                    labelText: 'Roll Number End',
+                    hintText: 'e.g., 150',
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Required';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _studentCountController,
+            decoration: const InputDecoration(
+              labelText: 'Number of Students',
+              hintText: 'e.g., 30',
+            ),
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter the number of students';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Color Selection
+          Text(
+            'Course Color',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
           ListTile(
-            title: const Text('Course Color'),
+            title: const Text('Select Color'),
             trailing: Container(
               width: 24,
               height: 24,
@@ -188,32 +548,28 @@ class _CourseInputState extends State<CourseInput> {
                 builder: (context) => AlertDialog(
                   title: const Text('Pick a color'),
                   content: SingleChildScrollView(
-                    child: ColorPicker(
+                    child: BlockPicker(
                       pickerColor: _selectedColor,
                       onColorChanged: (color) {
                         setState(() {
                           _selectedColor = color;
                         });
+                        Navigator.pop(context);
                       },
                     ),
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Done'),
-                    ),
-                  ],
                 ),
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+
           // Time Slots
           Text(
-            'Available Time Slots',
-            style: Theme.of(context).textTheme.titleMedium,
+            'Time Slots',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -226,7 +582,8 @@ class _CourseInputState extends State<CourseInput> {
                   'Tuesday',
                   'Wednesday',
                   'Thursday',
-                  'Friday'
+                  'Friday',
+                  'Saturday'
                 ][slot.day]),
                 subtitle: Text(
                   '${slot.startTime.format(context)} - ${slot.endTime.format(context)}',
@@ -244,7 +601,9 @@ class _CourseInputState extends State<CourseInput> {
             icon: const Icon(Icons.add),
             label: const Text('Add Time Slot'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+
+          // Submit Button
           ElevatedButton(
             onPressed: _submit,
             child: Text(widget.course == null ? 'Add Course' : 'Update Course'),

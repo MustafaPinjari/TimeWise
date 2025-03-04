@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import '../main.dart';
 import '../utils/genetic_algorithm.dart';
 import '../widgets/course_input.dart';
@@ -17,122 +16,17 @@ class GeneratorPage extends StatefulWidget {
 
 class _GeneratorPageState extends State<GeneratorPage> {
   bool _isGenerating = false;
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _instructorController = TextEditingController();
-  final _creditHoursController = TextEditingController();
-  Color _selectedColor = Colors.blue;
-  final List<TimeSlot> _timeSlots = [];
+  BatchType _selectedBatch = BatchType.morning;
+  String _selectedDivision = 'B';
+  String _selectedProgram = 'BCA';
+  String _selectedSemester = 'Sem-VI';
+  String _selectedClassroom = 'S-C3';
+  String _selectedAcademicYear = '2024-25';
 
   @override
   void initState() {
     super.initState();
-    // Load data when page initializes
     context.read<CourseProvider>().loadData();
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _instructorController.dispose();
-    _creditHoursController.dispose();
-    super.dispose();
-  }
-
-  void _addCourse() {
-    if (_formKey.currentState!.validate() && _timeSlots.isNotEmpty) {
-      debugPrint('Adding course: ${_nameController.text}');
-      final course = Course(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _nameController.text,
-        instructor: _instructorController.text.isEmpty ? null : _instructorController.text,
-        creditHours: int.parse(_creditHoursController.text),
-        color: _selectedColor,
-        availableTimeSlots: List.from(_timeSlots),
-      );
-
-      context.read<CourseProvider>().addCourse(course);
-      debugPrint('Course added successfully');
-
-      // Clear form
-      _nameController.clear();
-      _instructorController.clear();
-      _creditHoursController.clear();
-      setState(() {
-        _timeSlots.clear();
-        _selectedColor = Colors.blue;
-      });
-      _formKey.currentState!.reset();
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Course added successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      debugPrint('Form validation failed or no time slots added');
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all required fields and add at least one time slot'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  void _addTimeSlot() async {
-    final TimeOfDay? startTime = await showTimePicker(
-      context: context,
-      initialTime: const TimeOfDay(hour: 9, minute: 0),
-    );
-
-    if (startTime == null) return;
-
-    final TimeOfDay? endTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
-        hour: startTime.hour + 1,
-        minute: startTime.minute,
-      ),
-    );
-
-    if (endTime == null) return;
-
-    final int? day = await showDialog<int>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Day'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (int i = 0; i < 5; i++)
-              ListTile(
-                title: Text([
-                  'Monday',
-                  'Tuesday',
-                  'Wednesday',
-                  'Thursday',
-                  'Friday'
-                ][i]),
-                onTap: () => Navigator.pop(context, i),
-              ),
-          ],
-        ),
-      ),
-    );
-
-    if (day == null) return;
-
-    setState(() {
-      _timeSlots.add(TimeSlot(
-        day: day,
-        startTime: startTime,
-        endTime: endTime,
-      ));
-    });
   }
 
   @override
@@ -175,135 +69,142 @@ class _GeneratorPageState extends State<GeneratorPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Batch Settings Card
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Timetable Settings',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<BatchType>(
+                          value: _selectedBatch,
+                          decoration: const InputDecoration(
+                            labelText: 'Batch',
+                          ),
+                          items: BatchType.values.map((type) {
+                            return DropdownMenuItem(
+                              value: type,
+                              child: Text(type == BatchType.morning ? 'B1 (8:00 AM - 3:00 PM)' : 'B2 (10:00 AM - 5:00 PM)'),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedBatch = value!;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          initialValue: _selectedDivision,
+                          decoration: const InputDecoration(
+                            labelText: 'Division',
+                            hintText: 'e.g., B',
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedDivision = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          initialValue: _selectedClassroom,
+                          decoration: const InputDecoration(
+                            labelText: 'Classroom',
+                            hintText: 'e.g., S-C3',
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedClassroom = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _selectedProgram,
+                          decoration: const InputDecoration(
+                            labelText: 'Program',
+                          ),
+                          items: ['BCA', 'MCA', 'B.Tech', 'M.Tech'].map((program) {
+                            return DropdownMenuItem(
+                              value: program,
+                              child: Text(program),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedProgram = value!;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _selectedSemester,
+                          decoration: const InputDecoration(
+                            labelText: 'Semester',
+                          ),
+                          items: ['Sem-I', 'Sem-II', 'Sem-III', 'Sem-IV', 'Sem-V', 'Sem-VI'].map((sem) {
+                            return DropdownMenuItem(
+                              value: sem,
+                              child: Text(sem),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedSemester = value!;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _selectedAcademicYear,
+                          decoration: const InputDecoration(
+                            labelText: 'Academic Year',
+                          ),
+                          items: ['2023-24', '2024-25', '2025-26'].map((year) {
+                            return DropdownMenuItem(
+                              value: year,
+                              child: Text(year),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedAcademicYear = value!;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // Course Input Form
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextFormField(
-                            controller: _nameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Course Name',
-                              hintText: 'e.g., Operating Systems',
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a course name';
-                              }
-                              return null;
-                            },
+                    child: CourseInput(
+                      onSubmit: (course) {
+                        final updatedCourse = course.copyWith(
+                          batch: _selectedBatch == BatchType.morning ? "B1" : "B2",
+                          division: _selectedDivision,
+                          classroom: _selectedClassroom,
+                          program: _selectedProgram,
+                          semester: _selectedSemester,
+                          academicYear: _selectedAcademicYear,
+                        );
+                        provider.addCourse(updatedCourse);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Course added successfully'),
+                            backgroundColor: Colors.green,
                           ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _instructorController,
-                            decoration: const InputDecoration(
-                              labelText: 'Instructor (Optional)',
-                              hintText: 'e.g., Dr. Smith',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _creditHoursController,
-                            decoration: const InputDecoration(
-                              labelText: 'Credit Hours',
-                              hintText: 'e.g., 3',
-                            ),
-                            keyboardType: TextInputType.number,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter credit hours';
-                              }
-                              final number = int.tryParse(value);
-                              if (number == null || number <= 0) {
-                                return 'Please enter a valid number';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // Color Picker
-                          ListTile(
-                            title: const Text('Course Color'),
-                            trailing: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: _selectedColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Pick a color'),
-                                  content: SingleChildScrollView(
-                                    child: BlockPicker(
-                                      pickerColor: _selectedColor,
-                                      onColorChanged: (color) {
-                                        setState(() {
-                                          _selectedColor = color;
-                                        });
-                                        Navigator.pop(context);
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // Time Slots
-                          Text(
-                            'Time Slots',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _timeSlots.length,
-                            itemBuilder: (context, index) {
-                              final slot = _timeSlots[index];
-                              return ListTile(
-                                title: Text([
-                                  'Monday',
-                                  'Tuesday',
-                                  'Wednesday',
-                                  'Thursday',
-                                  'Friday'
-                                ][slot.day]),
-                                subtitle: Text(
-                                  '${slot.startTime.format(context)} - ${slot.endTime.format(context)}',
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete),
-                                  onPressed: () {
-                                    setState(() {
-                                      _timeSlots.removeAt(index);
-                                    });
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: _addTimeSlot,
-                            icon: const Icon(Icons.access_time),
-                            label: const Text('Add Time Slot'),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _timeSlots.isEmpty ? null : _addCourse,
-                            child: const Text('Add Course'),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -319,7 +220,7 @@ class _GeneratorPageState extends State<GeneratorPage> {
                         child: Padding(
                           padding: EdgeInsets.all(16.0),
                           child: Text(
-                            'No courses added yet.\nFill the form above to add a course.',
+                            'No courses added yet.\nAdd courses using the form above.',
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -332,12 +233,37 @@ class _GeneratorPageState extends State<GeneratorPage> {
                               child: CourseTile(
                                 course: course,
                                 onEdit: () {
-                                  // TODO: Implement edit functionality
-                                  debugPrint('Editing course: ${course.name}');
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Edit Course'),
+                                      content: SizedBox(
+                                        width: double.maxFinite,
+                                        child: CourseInput(
+                                          course: course,
+                                          onSubmit: (updatedCourse) {
+                                            provider.updateCourse(updatedCourse);
+                                            Navigator.pop(context);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Course updated successfully'),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  );
                                 },
                                 onDelete: () {
-                                  debugPrint('Deleting course: ${course.name}');
                                   provider.removeCourse(course.id);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Course removed successfully'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
                                 },
                               ),
                             ),
@@ -353,8 +279,12 @@ class _GeneratorPageState extends State<GeneratorPage> {
                           try {
                             final algorithm = GeneticAlgorithm(
                               courses: provider.courses,
-                              rows: 12, // 8 AM to 8 PM
-                              columns: 5, // Monday to Friday
+                              batchType: _selectedBatch,
+                              division: _selectedDivision,
+                              classroom: _selectedClassroom,
+                              academicYear: _selectedAcademicYear,
+                              program: _selectedProgram,
+                              semester: _selectedSemester,
                             );
                             final schedules = algorithm.generateSchedules();
                             provider.setSchedules(schedules);

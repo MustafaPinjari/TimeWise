@@ -80,34 +80,35 @@ class TimetableView extends StatelessWidget {
                             child: Text('Time'),
                           ),
                         ),
-                        for (int i = 0; i < 5; i++)
+                        for (String day in [
+                          'Monday',
+                          'Tuesday',
+                          'Wednesday',
+                          'Thursday',
+                          'Friday',
+                          'Saturday'
+                        ])
                           TableCell(
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Text([
-                                'Monday',
-                                'Tuesday',
-                                'Wednesday',
-                                'Thursday',
-                                'Friday'
-                              ][i]),
+                              child: Text(day),
                             ),
                           ),
                       ],
                     ),
                     // Time Slots
-                    for (int row = 0; row < 12; row++)
+                    for (int row = 0; row < schedule.grid.length; row++)
                       TableRow(
                         children: [
                           // Time Column
                           TableCell(
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Text('${row + 8}:00'),
+                              child: Text(schedule.grid[row][0].timeSlot.split(' - ')[0]),
                             ),
                           ),
                           // Course Cells
-                          for (int col = 0; col < 5; col++)
+                          for (int col = 0; col < schedule.grid[0].length; col++)
                             TableCell(
                               child: _buildCourseCell(context, schedule.grid[row][col]),
                             ),
@@ -153,7 +154,7 @@ class TimetableView extends StatelessWidget {
               style: const TextStyle(fontSize: 12),
             ),
           Text(
-            '${cell.timeSlot!.startTime.format(context)} - ${cell.timeSlot!.endTime.format(context)}',
+            cell.timeSlot,
             style: const TextStyle(fontSize: 12),
           ),
         ],

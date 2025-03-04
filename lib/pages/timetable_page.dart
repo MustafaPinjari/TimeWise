@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../utils/pdf_export.dart';
+import '../models/course.dart';
+import '../models/timetable_schedule.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:universal_html/html.dart' as html;
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class TimetablePage extends StatefulWidget {
   const TimetablePage({super.key});
@@ -50,111 +53,270 @@ class _TimetablePageState extends State<TimetablePage> {
 
           final schedule = provider.schedules[_currentIndex];
 
-          return Column(
-            children: [
-              // Navigation and Info
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left),
-                      onPressed: _currentIndex > 0
-                          ? () => setState(() => _currentIndex--)
-                          : null,
-                    ),
-                    Column(
-                      children: [
-                        Text(
-                          'Schedule ${_currentIndex + 1} of ${provider.schedules.length}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.star, color: Colors.amber, size: 20),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Fitness: ${(schedule.fitnessScore * 100).toStringAsFixed(1)}%',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right),
-                      onPressed: _currentIndex < provider.schedules.length - 1
-                          ? () => setState(() => _currentIndex++)
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-              // Export Button
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: ElevatedButton.icon(
-                  onPressed: _isExporting ? null : _exportToPdf,
-                  icon: _isExporting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Icon(Icons.download),
-                  label: Text(_isExporting ? 'Exporting...' : 'Export to PDF'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Timetable Grid
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                // Navigation and Info
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        onPressed: _currentIndex > 0
+                            ? () => setState(() => _currentIndex--)
+                            : null,
+                      ),
+                      Column(
                         children: [
-                          // Header Row
+                          Text(
+                            'Schedule ${_currentIndex + 1} of ${provider.schedules.length}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              _buildHeaderCell('Time', isTime: true),
-                              for (String day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
-                                _buildHeaderCell(day),
+                              const Icon(Icons.star, color: Colors.amber, size: 20),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Fitness: ${(schedule.fitnessScore * 100).toStringAsFixed(1)}%',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
                             ],
                           ),
-                          // Time Slots
-                          for (int row = 0; row < 12; row++)
-                            Row(
-                              children: [
-                                // Time Column
-                                _buildHeaderCell('${row + 8}:00', isTime: true),
-                                // Course Cells
-                                for (int col = 0; col < 5; col++)
-                                  _buildCourseCell(schedule.grid[row][col]),
-                              ],
-                            ),
                         ],
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: _currentIndex < provider.schedules.length - 1
+                            ? () => setState(() => _currentIndex++)
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+                // Timetable Header
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16.0),
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'School of Computer Sciences & Engineering',
+                        style: Theme.of(context).textTheme.titleLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Department of Computer Science and Application',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'ACADEMIC YEAR: ${schedule.academicYear}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text(
+                            'Program: ${schedule.program}',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            'Semester: ${schedule.semester}',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            'Division: ${schedule.division}',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Class Room: "${schedule.classroom}"',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Timetable Grid
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header Row
+                        Row(
+                          children: [
+                            _buildHeaderCell('Time', isTime: true),
+                            for (String day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'])
+                              _buildHeaderCell(day),
+                          ],
+                        ),
+                        // Time Slots
+                        for (var timeSlot in _getTimeSlots())
+                          Row(
+                            children: [
+                              _buildHeaderCell(timeSlot, isTime: true),
+                              for (int col = 0; col < 6; col++)
+                                _buildCourseCell(schedule.grid[_getTimeSlotIndex(timeSlot)][col]),
+                            ],
+                          ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                // Course Legend
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Theory/Tutorial Course',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Table(
+                        border: TableBorder.all(),
+                        children: [
+                          const TableRow(
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('Course Code'),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('Course Name'),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('Full Name'),
+                              ),
+                            ],
+                          ),
+                          ...provider.courses
+                              .where((course) => !course.isPractical)
+                              .map((course) => TableRow(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Text(course.code),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Text(course.name),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Text(course.instructor ?? ''),
+                                      ),
+                                    ],
+                                  ))
+                              .toList(),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Practical Course',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Table(
+                        border: TableBorder.all(),
+                        children: [
+                          const TableRow(
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('Course Code'),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('Course Name'),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text('Full Name'),
+                              ),
+                            ],
+                          ),
+                          ...provider.courses
+                              .where((course) => course.isPractical)
+                              .map((course) => TableRow(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Text(course.code),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Text(course.name),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Text(course.instructor ?? ''),
+                                      ),
+                                    ],
+                                  ))
+                              .toList(),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
     );
   }
 
+  List<String> _getTimeSlots() {
+    final batchType = context.read<CourseProvider>().schedules[_currentIndex].grid[0][0].timeSlot.startsWith('8:00') 
+      ? BatchType.morning 
+      : BatchType.afternoon;
+
+    final List<TimeSlot> slots = List.generate(7, (row) {
+      final startHour = batchType == BatchType.morning ? 8 + row : 10 + row;
+      final endHour = startHour + 1;
+      return TimeSlot(
+        day: 0,
+        startTime: TimeOfDay(hour: startHour, minute: 0),
+        endTime: TimeOfDay(hour: endHour, minute: 0),
+        type: SlotType.lecture,
+      );
+    });
+
+    return slots.map((slot) {
+      final startHour = slot.startTime.hour == 0 ? 12 : slot.startTime.hour > 12 ? slot.startTime.hour - 12 : slot.startTime.hour;
+      final endHour = slot.endTime.hour == 0 ? 12 : slot.endTime.hour > 12 ? slot.endTime.hour - 12 : slot.endTime.hour;
+      final startPeriod = slot.startTime.hour < 12 ? 'AM' : 'PM';
+      final endPeriod = slot.endTime.hour < 12 ? 'AM' : 'PM';
+      return '${startHour}:00 $startPeriod - ${endHour}:00 $endPeriod';
+    }).toList();
+  }
+
+  int _getTimeSlotIndex(String timeSlot) {
+    return _getTimeSlots().indexOf(timeSlot);
+  }
+
   Widget _buildHeaderCell(String text, {bool isTime = false}) {
     return Container(
-      width: isTime ? 80 : 200,
+      width: isTime ? 150 : 200,
       height: 50,
       decoration: BoxDecoration(
         color: Theme.of(context).primaryColor.withOpacity(0.1),
@@ -167,115 +329,215 @@ class _TimetablePageState extends State<TimetablePage> {
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
+          textAlign: TextAlign.center,
         ),
       ),
     );
   }
 
-  Widget _buildCourseCell(cell) {
-    if (cell.course == null) {
+  Widget _buildCourseCell(TimetableCell cell) {
+    // Get the time slot index safely
+    final timeSlotIndex = _getTimeSlots().indexWhere((slot) {
+      // Convert both time slots to 24-hour format for comparison
+      final cellParts = cell.timeSlot.split(' - ');
+      final slotParts = slot.split(' - ');
+      
+      if (cellParts.length != 2 || slotParts.length != 2) return false;
+      
+      final cellStart = _parseTimeString(cellParts[0]);
+      final slotStart = _parseTimeString(slotParts[0]);
+      
+      return cellStart == slotStart;
+    });
+
+    if (timeSlotIndex == -1) {
+      // If time slot is not found, return an empty cell
       return Container(
         width: 200,
-        height: 80,
+        height: 60,
         decoration: BoxDecoration(
           border: Border.all(color: Theme.of(context).dividerColor),
         ),
       );
     }
 
+    // Special handling for break times
+    final timeSlot = _getTimeSlots()[timeSlotIndex];
+    if (timeSlot == '10:00 AM - 11:00 AM') {
+      return Container(
+        width: 200,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        padding: const EdgeInsets.all(8.0),
+        child: const Center(
+          child: Text(
+            'SHORT BREAK\n(10:00 AM - 10:15 AM)',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    } else if (timeSlot == '12:00 PM - 1:00 PM') {
+      return Container(
+        width: 200,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        padding: const EdgeInsets.all(8.0),
+        child: const Center(
+          child: Text(
+            'LUNCH BREAK',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (cell.isBreak) {
+      return Container(
+        width: 200,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        padding: const EdgeInsets.all(8.0),
+        child: Center(
+          child: Text(
+            cell.breakType == 'Lunch Break' ? 'LUNCH BREAK' : 'SHORT BREAK',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (cell.course == null) {
+      return Container(
+        width: 200,
+        height: 60,
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: const Center(
+          child: Text(
+            'LIBRARY',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: 200,
-      height: 80,
+      height: 60,
       decoration: BoxDecoration(
-        color: cell.course.color.withOpacity(0.2),
+        color: cell.course!.color.withOpacity(0.2),
         border: Border.all(
-          color: cell.isConflict ? Colors.red : cell.course.color,
+          color: cell.isConflict ? Colors.red : cell.course!.color,
           width: cell.isConflict ? 2 : 1,
         ),
       ),
       padding: const EdgeInsets.all(8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            cell.course.name,
+            cell.course!.name,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: cell.course.color,
+              color: cell.course!.color,
             ),
+            textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
           ),
-          if (cell.course.instructor != null)
+          if (cell.course!.instructor != null)
             Text(
-              cell.course.instructor!,
+              cell.course!.instructor!,
               style: const TextStyle(fontSize: 12),
+              textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-            ),
-          if (cell.timeSlot != null)
-            Text(
-              '${cell.timeSlot.startTime.format(context)} - ${cell.timeSlot.endTime.format(context)}',
-              style: const TextStyle(fontSize: 12),
             ),
         ],
       ),
     );
   }
 
+  String _parseTimeString(String timeStr) {
+    final parts = timeStr.trim().split(' ');
+    if (parts.length != 2) return '';
+
+    final timeParts = parts[0].split(':');
+    if (timeParts.length != 2) return '';
+
+    int hour = int.parse(timeParts[0]);
+    final period = parts[1].toUpperCase();
+
+    // Convert to 24-hour format
+    if (period == 'PM' && hour != 12) {
+      hour += 12;
+    } else if (period == 'AM' && hour == 12) {
+      hour = 0;
+    }
+
+    return '${hour.toString().padLeft(2, '0')}:${timeParts[1]}';
+  }
+
   Future<void> _exportToPdf() async {
-    final provider = context.read<CourseProvider>();
-    if (provider.schedules.isEmpty) return;
-
     setState(() => _isExporting = true);
-
     try {
-      final schedule = provider.schedules[_currentIndex];
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'timetable_$timestamp.pdf';
+      final schedule = context.read<CourseProvider>().schedules[_currentIndex];
+      final bytes = await PdfExport.exportTimetable(schedule);
 
-      // Generate PDF bytes
-      final List<int> pdfBytes = await PdfExport.exportTimetable(schedule);
-
-      // Create Blob
-      final blob = html.Blob([Uint8List.fromList(pdfBytes)], 'application/pdf');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      
-      // Create download link
-      final anchor = html.AnchorElement()
-        ..href = url
-        ..style.display = 'none'
-        ..download = fileName;
-      html.document.body?.children.add(anchor);
-
-      // Trigger download
-      anchor.click();
-
-      // Cleanup
-      html.document.body?.children.remove(anchor);
-      html.Url.revokeObjectUrl(url);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Timetable downloaded successfully'),
-            duration: Duration(seconds: 3),
-          ),
-        );
+      if (kIsWeb) {
+        final blob = html.Blob([bytes]);
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.document.createElement('a') as html.AnchorElement
+          ..href = url
+          ..style.display = 'none'
+          ..download = 'timetable.pdf';
+        html.document.body?.children.add(anchor);
+        anchor.click();
+        html.document.body?.children.remove(anchor);
+        html.Url.revokeObjectUrl(url);
+      } else {
+        final directory = await getApplicationDocumentsDirectory();
+        final file = File('${directory.path}/timetable.pdf');
+        await file.writeAsBytes(bytes);
+        // Open the PDF file
+        if (Platform.isAndroid || Platform.isIOS) {
+          // Open with platform-specific viewer
+        } else {
+          // Open with default application
+          Process.run('start', [file.path], runInShell: true);
+        }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error exporting timetable: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to export PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _isExporting = false);
-      }
+      setState(() => _isExporting = false);
     }
   }
 } 
