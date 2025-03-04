@@ -28,7 +28,7 @@ class _TimetablePageState extends State<TimetablePage> {
       appBar: AppBar(
         title: const Text('Generated Timetables'),
         actions: [
-          IconButton(
+          TextButton.icon(
             icon: _isExporting
                 ? const SizedBox(
                     width: 20,
@@ -38,10 +38,30 @@ class _TimetablePageState extends State<TimetablePage> {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.download),
+                : const Icon(Icons.picture_as_pdf, color: Colors.white),
+            label: const Text(
+              'Export PDF',
+              style: TextStyle(color: Colors.white),
+            ),
             onPressed: _isExporting ? null : _exportToPdf,
           ),
+          const SizedBox(width: 8),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _isExporting ? null : _exportToPdf,
+        icon: _isExporting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.download),
+        label: const Text('Export as PDF'),
+        backgroundColor: Theme.of(context).primaryColor,
       ),
       body: Consumer<CourseProvider>(
         builder: (context, provider, child) {
@@ -506,36 +526,100 @@ class _TimetablePageState extends State<TimetablePage> {
       final schedule = context.read<CourseProvider>().schedules[_currentIndex];
       final bytes = await PdfExport.exportTimetable(schedule);
 
+      if (bytes.isEmpty) {
+        throw Exception('Generated PDF is empty');
+      }
+
       if (kIsWeb) {
-        final blob = html.Blob([bytes]);
+        // Web platform: Download using HTML
+        final blob = html.Blob([bytes], 'application/pdf');
         final url = html.Url.createObjectUrlFromBlob(blob);
         final anchor = html.document.createElement('a') as html.AnchorElement
           ..href = url
           ..style.display = 'none'
-          ..download = 'timetable.pdf';
+          ..download = 'timetable_${schedule.program}_${schedule.semester}.pdf';
         html.document.body?.children.add(anchor);
         anchor.click();
         html.document.body?.children.remove(anchor);
         html.Url.revokeObjectUrl(url);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Timetable exported successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
       } else {
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/timetable.pdf');
-        await file.writeAsBytes(bytes);
-        // Open the PDF file
-        if (Platform.isAndroid || Platform.isIOS) {
-          // Open with platform-specific viewer
+        String? filePath;
+        if (Platform.isWindows) {
+          // Save to Downloads folder on Windows
+          final String downloadPath = '${Platform.environment['USERPROFILE']}\\Downloads';
+          final fileName = 'timetable_${schedule.program}_${schedule.semester}.pdf';
+          filePath = '$downloadPath\\$fileName';
         } else {
-          // Open with default application
-          Process.run('start', [file.path], runInShell: true);
+          // Other platforms: Save to app documents directory
+          final directory = await getApplicationDocumentsDirectory();
+          final fileName = 'timetable_${schedule.program}_${schedule.semester}.pdf';
+          filePath = '${directory.path}/$fileName';
+        }
+
+        final file = File(filePath);
+        await file.writeAsBytes(bytes, flush: true);
+
+        if (Platform.isAndroid) {
+          // Use platform channel to open PDF on Android
+          const platform = MethodChannel('com.example.timewise/pdf');
+          try {
+            await platform.invokeMethod('openPdf', {'filePath': filePath});
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Timetable exported and opened successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Timetable saved to $filePath'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          // Desktop and iOS platforms
+          try {
+            if (Platform.isWindows) {
+              await Process.run('explorer', [filePath], runInShell: true);
+            } else if (Platform.isMacOS) {
+              await Process.run('open', [filePath]);
+            } else if (Platform.isLinux) {
+              await Process.run('xdg-open', [filePath]);
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Timetable saved to $filePath'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Timetable saved to $filePath'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to export PDF: $e'),
+          content: Text('Failed to export PDF: ${e.toString()}'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
+      debugPrint('PDF Export Error: $e');
     } finally {
       setState(() => _isExporting = false);
     }
