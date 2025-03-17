@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'styles/theme.dart';
@@ -10,8 +12,20 @@ import 'models/timetable_schedule.dart';
 import 'utils/storage_helper.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    // Configure web specific settings
+    if (kIsWeb) {
+      usePathUrlStrategy();
+      setUrlStrategy(PathUrlStrategy());
+    }
+    
+    runApp(const MyApp());
+  } catch (e) {
+    print('Error initializing app: $e');
+    rethrow;
+  }
 }
 
 class MyApp extends StatelessWidget {
