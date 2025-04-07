@@ -45,6 +45,31 @@
   </style>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <div id="loading">Loading...</div>
+  <script>
+    window.addEventListener('load', async function() {
+      var loading = document.querySelector('#loading');
+      
+      // Initialize Flutter
+      try {
+        _flutter.loader.load({
+          serviceWorkerVersion: '{{flutter_service_worker_version}}',
+          onEntrypointLoaded: async function(engineInitializer) {
+            loading.textContent = 'Initializing app...';
+            let appRunner = await engineInitializer.initializeEngine({
+              useColorEmoji: true,
+              renderer: "html"
+            });
+            loading.textContent = 'Starting app...';
+            await appRunner.runApp();
+            loading.remove();
+          }
+        });
+      } catch (e) {
+        console.error('Error loading Flutter app:', e);
+        loading.textContent = 'Error loading the app. Please try again.';
+      }
+    });
+  </script>
 </body>
 </html>

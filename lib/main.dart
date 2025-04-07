@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+// Only import web plugins when running on web
+// Remove direct import of flutter_web_plugins
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'styles/theme.dart';
@@ -10,9 +13,25 @@ import 'models/timetable_schedule.dart';
 import 'utils/storage_helper.dart';
 import 'widgets/logo.dart';
 
+// Use conditional import for web platform
+// We'll import this only when compiling for web
+import 'web_url_strategy.dart' if (dart.library.io) 'stub_url_strategy.dart';
+
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    // Configure web specific settings
+    if (kIsWeb) {
+      // Call the platform-independent function
+      configureUrl();
+    }
+    
+    runApp(const MyApp());
+  } catch (e) {
+    print('Error initializing app: $e');
+    rethrow;
+  }
 }
 
 class MyApp extends StatelessWidget {
