@@ -1,11 +1,11 @@
 {
-    "name": "timewise",
-    "short_name": "timewise",
+    "name": "TimeWise",
+    "short_name": "TimeWise",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#181C14",
+    "theme_color": "#697565",
+    "description": "Generate your academic timetable with intelligent schedule optimization",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

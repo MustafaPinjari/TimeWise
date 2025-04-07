@@ -542,20 +542,21 @@ class _TimetablePageState extends State<TimetablePage> {
         anchor.click();
         html.document.body?.children.remove(anchor);
         html.Url.revokeObjectUrl(url);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Timetable exported successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
       } else {
-        String? filePath;
+        String filePath;
         if (Platform.isWindows) {
           // Save to Downloads folder on Windows
           final String downloadPath = '${Platform.environment['USERPROFILE']}\\Downloads';
           final fileName = 'timetable_${schedule.program}_${schedule.semester}.pdf';
           filePath = '$downloadPath\\$fileName';
+        } else if (Platform.isAndroid) {
+          // For Android, use the app's external files directory
+          final directory = await getExternalStorageDirectory();
+          if (directory == null) {
+            throw Exception('Could not access external storage');
+          }
+          final fileName = 'timetable_${schedule.program}_${schedule.semester}.pdf';
+          filePath = '${directory.path}/$fileName';
         } else {
           // Other platforms: Save to app documents directory
           final directory = await getApplicationDocumentsDirectory();
@@ -566,62 +567,55 @@ class _TimetablePageState extends State<TimetablePage> {
         final file = File(filePath);
         await file.writeAsBytes(bytes, flush: true);
 
+        // Try to open the file
         if (Platform.isAndroid) {
-          // Use platform channel to open PDF on Android
           const platform = MethodChannel('com.example.timewise/pdf');
           try {
             await platform.invokeMethod('openPdf', {'filePath': filePath});
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Timetable exported and opened successfully'),
-                backgroundColor: Colors.green,
-              ),
-            );
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Timetable saved to $filePath'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        } else {
-          // Desktop and iOS platforms
-          try {
-            if (Platform.isWindows) {
-              await Process.run('explorer', [filePath], runInShell: true);
-            } else if (Platform.isMacOS) {
-              await Process.run('open', [filePath]);
-            } else if (Platform.isLinux) {
-              await Process.run('xdg-open', [filePath]);
+            debugPrint('Failed to open PDF on Android: $e');
+            // Show a message with the file location
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('PDF saved to: $filePath'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             }
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Timetable saved to $filePath'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Timetable saved to $filePath'),
-                backgroundColor: Colors.green,
-              ),
-            );
           }
+        } else if (Platform.isWindows) {
+          await Process.run('explorer', [filePath], runInShell: true);
+        } else if (Platform.isMacOS) {
+          await Process.run('open', [filePath]);
+        } else if (Platform.isLinux) {
+          await Process.run('xdg-open', [filePath]);
         }
       }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Timetable exported successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to export PDF: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to export PDF: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
       debugPrint('PDF Export Error: $e');
     } finally {
-      setState(() => _isExporting = false);
+      if (mounted) {
+        setState(() => _isExporting = false);
+      }
     }
   }
 } 

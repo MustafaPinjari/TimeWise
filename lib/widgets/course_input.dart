@@ -41,6 +41,14 @@ class _CourseInputState extends State<CourseInput> {
   final List<String> _semesters = ['Sem-I', 'Sem-II', 'Sem-III', 'Sem-IV', 'Sem-V', 'Sem-VI'];
   final List<String> _academicYears = ['2023-24', '2024-25', '2025-26'];
 
+  // Add focus nodes for each text field
+  final _codeFocus = FocusNode();
+  final _nameFocus = FocusNode();
+  final _instructorFocus = FocusNode();
+  final _creditHoursFocus = FocusNode();
+  final _rollStartFocus = FocusNode();
+  final _rollEndFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +84,19 @@ class _CourseInputState extends State<CourseInput> {
     _rollStartController.dispose();
     _rollEndController.dispose();
     _studentCountController.dispose();
+    _codeFocus.dispose();
+    _nameFocus.dispose();
+    _instructorFocus.dispose();
+    _creditHoursFocus.dispose();
+    _rollStartFocus.dispose();
+    _rollEndFocus.dispose();
     super.dispose();
+  }
+
+  // Field focus change helper
+  void _fieldFocusChange(BuildContext context, FocusNode currentFocus, FocusNode nextFocus) {
+    currentFocus.unfocus();
+    FocusScope.of(context).requestFocus(nextFocus);
   }
 
   void _addTimeSlot() async {
@@ -227,6 +247,41 @@ class _CourseInputState extends State<CourseInput> {
     });
   }
 
+  void _clearForm() {
+    _codeController.clear();
+    _nameController.clear();
+    _instructorController.clear();
+    _creditHoursController.clear();
+    _classroomController.clear();
+    _divisionController.clear();
+    _rollStartController.clear();
+    _rollEndController.clear();
+    _studentCountController.clear();
+    setState(() {
+      _selectedColor = Colors.blue;
+      _selectedBatch = BatchType.morning;
+      _selectedType = SlotType.lecture;
+      _selectedCourseType = CourseType.theory;
+      _selectedProgram = _programs.first;
+      _selectedSemester = _semesters.first;
+      _selectedAcademicYear = _academicYears.first;
+      _timeSlots.clear();
+    });
+  }
+
+  void _updateStudentCount() {
+    final start = int.tryParse(_rollStartController.text);
+    final end = int.tryParse(_rollEndController.text);
+    
+    if (start != null && end != null && end >= start) {
+      setState(() {
+        _studentCountController.text = (end - start + 1).toString();
+      });
+    } else {
+      _studentCountController.text = '';
+    }
+  }
+
   void _submit() {
     if (_formKey.currentState!.validate() && _timeSlots.isNotEmpty) {
       _formKey.currentState!.save();
@@ -254,6 +309,31 @@ class _CourseInputState extends State<CourseInput> {
       );
 
       widget.onSubmit(course);
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${course.name} has been added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+      // Clear form if not in edit mode
+      if (widget.course == null) {
+        _clearForm();
+      }
+    } else if (_timeSlots.isEmpty) {
+      // Show error message if no time slots added
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please add at least one time slot'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -272,6 +352,9 @@ class _CourseInputState extends State<CourseInput> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _codeController,
+            focusNode: _codeFocus,
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) => _fieldFocusChange(context, _codeFocus, _nameFocus),
             decoration: const InputDecoration(
               labelText: 'Course Code',
               hintText: 'e.g., XCA403',
@@ -286,6 +369,9 @@ class _CourseInputState extends State<CourseInput> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _nameController,
+            focusNode: _nameFocus,
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) => _fieldFocusChange(context, _nameFocus, _instructorFocus),
             decoration: const InputDecoration(
               labelText: 'Course Name',
               hintText: 'e.g., Software Project Management',
@@ -300,6 +386,9 @@ class _CourseInputState extends State<CourseInput> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _instructorController,
+            focusNode: _instructorFocus,
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) => _fieldFocusChange(context, _instructorFocus, _creditHoursFocus),
             decoration: const InputDecoration(
               labelText: 'Instructor',
               hintText: 'e.g., Dr. John Smith',
@@ -308,6 +397,9 @@ class _CourseInputState extends State<CourseInput> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _creditHoursController,
+            focusNode: _creditHoursFocus,
+            textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) => _fieldFocusChange(context, _creditHoursFocus, _rollStartFocus),
             decoration: const InputDecoration(
               labelText: 'Credit Hours',
               hintText: 'e.g., 3',
@@ -440,36 +532,8 @@ class _CourseInputState extends State<CourseInput> {
 
           // Class and Student Information
           Text(
-            'Class and Student Information',
+            'Student Information',
             style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _classroomController,
-            decoration: const InputDecoration(
-              labelText: 'Classroom',
-              hintText: 'e.g., S-C3',
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a classroom';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _divisionController,
-            decoration: const InputDecoration(
-              labelText: 'Division',
-              hintText: 'e.g., B',
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a division';
-              }
-              return null;
-            },
           ),
           const SizedBox(height: 16),
           Row(
@@ -477,6 +541,9 @@ class _CourseInputState extends State<CourseInput> {
               Expanded(
                 child: TextFormField(
                   controller: _rollStartController,
+                  focusNode: _rollStartFocus,
+                  textInputAction: TextInputAction.next,
+                  onFieldSubmitted: (_) => _fieldFocusChange(context, _rollStartFocus, _rollEndFocus),
                   decoration: const InputDecoration(
                     labelText: 'Roll Number Start',
                     hintText: 'e.g., 101',
@@ -486,7 +553,14 @@ class _CourseInputState extends State<CourseInput> {
                     if (value == null || value.isEmpty) {
                       return 'Required';
                     }
+                    final start = int.tryParse(value);
+                    if (start == null || start < 0) {
+                      return 'Invalid number';
+                    }
                     return null;
+                  },
+                  onChanged: (value) {
+                    _updateStudentCount();
                   },
                 ),
               ),
@@ -494,6 +568,9 @@ class _CourseInputState extends State<CourseInput> {
               Expanded(
                 child: TextFormField(
                   controller: _rollEndController,
+                  focusNode: _rollEndFocus,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _rollEndFocus.unfocus(),
                   decoration: const InputDecoration(
                     labelText: 'Roll Number End',
                     hintText: 'e.g., 150',
@@ -503,7 +580,18 @@ class _CourseInputState extends State<CourseInput> {
                     if (value == null || value.isEmpty) {
                       return 'Required';
                     }
+                    final end = int.tryParse(value);
+                    if (end == null || end < 0) {
+                      return 'Invalid number';
+                    }
+                    final start = int.tryParse(_rollStartController.text);
+                    if (start != null && end < start) {
+                      return 'Must be >= start';
+                    }
                     return null;
+                  },
+                  onChanged: (value) {
+                    _updateStudentCount();
                   },
                 ),
               ),
@@ -514,15 +602,10 @@ class _CourseInputState extends State<CourseInput> {
             controller: _studentCountController,
             decoration: const InputDecoration(
               labelText: 'Number of Students',
-              hintText: 'e.g., 30',
+              hintText: 'Auto-calculated from roll numbers',
             ),
+            enabled: false,
             keyboardType: TextInputType.number,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter the number of students';
-              }
-              return null;
-            },
           ),
           const SizedBox(height: 24),
 

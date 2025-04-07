@@ -8,6 +8,7 @@ import 'pages/timetable_page.dart';
 import 'models/course.dart';
 import 'models/timetable_schedule.dart';
 import 'utils/storage_helper.dart';
+import 'widgets/logo.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,8 +28,9 @@ class MyApp extends StatelessWidget {
       },
       child: MaterialApp.router(
         title: 'Timewise',
-        theme: AppTheme.lightTheme,
+        theme: AppTheme.darkTheme,
         routerConfig: _router,
+        debugShowCheckedModeBanner: false,
       ),
     );
   }
@@ -37,17 +39,32 @@ class MyApp extends StatelessWidget {
 final _router = GoRouter(
   initialLocation: '/',
   routes: [
-    GoRoute(
-      path: '/',
-      builder: (context, state) => const HomePage(),
-    ),
-    GoRoute(
-      path: '/generator',
-      builder: (context, state) => const GeneratorPage(),
-    ),
-    GoRoute(
-      path: '/timetable',
-      builder: (context, state) => const TimetablePage(),
+    ShellRoute(
+      builder: (context, state, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const TimeWiseLogo(size: 32),
+            centerTitle: true,
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+          ),
+          body: child,
+        );
+      },
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const HomePage(),
+        ),
+        GoRoute(
+          path: '/generator',
+          builder: (context, state) => const GeneratorPage(),
+        ),
+        GoRoute(
+          path: '/timetable',
+          builder: (context, state) => const TimetablePage(),
+        ),
+      ],
     ),
   ],
 );
